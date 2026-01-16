@@ -1,0 +1,25 @@
+meta {
+  name: api/customers
+  type: http
+  seq: 4
+}
+
+post {
+  url: http://127.0.0.1:5000/api/customers
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "name": "Iron Man",
+    "email": "tony@stark.com",
+    "phone": "123-456",
+    "address": "jagdalpur"
+  }
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

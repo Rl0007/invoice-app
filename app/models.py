@@ -19,7 +19,7 @@ class User(BaseModel, UserMixin):
 class Customer(BaseModel):
     name = CharField()
     email = CharField(unique=True)
-    phone = CharField()
+    phone = IntegerField()
     address = TextField()
 
 
@@ -33,8 +33,15 @@ class Invoice(BaseModel):
     date = DateField(default=datetime.date.today)
     total_amount = DecimalField(default=0.0)
 
+class InvoiceItem(BaseModel):
+    invoice = ForeignKeyField(Invoice, backref='items')
+    item_name = CharField()     #in case we changed name later
+    item_price = DecimalField()
+    quantity = IntegerField()
+    line_total = DecimalField()
 
 def initialize_db():
     db.connect()
-    db.create_tables([User, Customer, Item, Invoice], safe=True)
+    db.create_tables([User, Customer, Item, Invoice ,InvoiceItem], safe=True)
     db.close()
+

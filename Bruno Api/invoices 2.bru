@@ -1,0 +1,28 @@
+meta {
+  name: invoices 2
+  type: http
+  seq: 10
+}
+
+post {
+  url: http://127.0.0.1:5000/api/invoices
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "customer_id": 1,
+    "items": [
+      {
+        "item_id": 1,
+        "quantity": 5
+      }
+    ]
+  }
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

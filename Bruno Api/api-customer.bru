@@ -1,0 +1,25 @@
+meta {
+  name: api/customer
+  type: http
+  seq: 2
+}
+
+post {
+  url: http://127.0.0.1:5000/api/customers
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+      "name": "Manish 1 BWH",
+      "email": "contact13@manish.com",
+      "phone": "1234567890",
+      "address": "vrindavan colony jagdalpur"
+  }
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}
