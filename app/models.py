@@ -35,7 +35,7 @@ class Invoice(BaseModel):
 
 class InvoiceItem(BaseModel):
     invoice = ForeignKeyField(Invoice, backref='items')
-    item_name = CharField()     #in case we changed name later
+    item_name = CharField()    
     item_price = DecimalField()
     quantity = IntegerField()
     line_total = DecimalField()

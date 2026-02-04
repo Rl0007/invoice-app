@@ -25,7 +25,7 @@ def create_customer():
             name=data["name"],
             email=data["email"],
             phone=data["phone"],
-            address=data.get("address", ""),
+            address=data.get("address", " "),
         )
     elif request.method == "GET":
         customers = Customer.select()

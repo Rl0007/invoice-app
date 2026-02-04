@@ -4,22 +4,24 @@ from app.models import db, User, initialize_db
 
 login_manager = LoginManager()
 
+
 def create_app():
     app = Flask(__name__)
-    
-    app.config['SECRET_KEY'] = 'blank'
+
+    app.config["SECRET_KEY"] = "blank"
 
     login_manager.init_app(app)
 
     @login_manager.user_loader
     def load_user(user_id):
-        try:
-            return User.get_by_id(user_id)
-        except User.DoesNotExist:
-            return None
+        return User.get_by_id(user_id)
+
     from app.routes import api
     from app.auth import auth
-    app.register_blueprint(auth, url_prefix='/auth')
-    app.register_blueprint(api, url_prefix='/api')
+    from app.views import views
+
+    app.register_blueprint(auth, url_prefix="/auth")
+    app.register_blueprint(api, url_prefix="/api")
+    app.register_blueprint(views, url_prefix="/")
     initialize_db()
     return app
