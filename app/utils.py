@@ -33,6 +33,10 @@ def generate_invoice_pdf(invoice):
             <h3>Bill To:</h3>
             <p>{invoice.customer.name}</p>
         </div>
+
+        <div class="details">
+            <p>ARN : {invoice.arn}</p>
+        </div>
         
         <table>
             <thead>

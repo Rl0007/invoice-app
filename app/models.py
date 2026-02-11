@@ -32,6 +32,9 @@ class Invoice(BaseModel):
     customer = ForeignKeyField(Customer, backref="invoices")
     date = DateField(default=datetime.date.today)
     total_amount = DecimalField(default=0.0)
+    arn = CharField(null=True)
+    tax_name = CharField(default="Tax")
+    tax_percentage = DecimalField(default=0.0)
 
 class InvoiceItem(BaseModel):
     invoice = ForeignKeyField(Invoice, backref='items')
