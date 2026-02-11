@@ -1,5 +1,5 @@
 from app.models import Customer, Invoice ,Item
-from flask import Blueprint, render_template
+from flask import Blueprint, render_template ,redirect
 from flask_login import login_required, current_user
 from app.models import Customer
 from app.models import Item
@@ -9,7 +9,7 @@ views = Blueprint('views', __name__)
 @views.route('/')
 def home():
     if current_user.is_authenticated:
-        return render_template('login.html')
+        return redirect('/customers')
     return render_template('landing.html')
 
 @views.route('/login')

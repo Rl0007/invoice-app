@@ -8,10 +8,6 @@ from app.einvoice import get_arn
 
 api = Blueprint("api", __name__)
 
-@api.route("/health", methods=["GET"])
-def health_check():
-    return jsonify({"status": "ok", "message": "Invoice API is running"}), 200
-
 @api.route("/customers", methods=["POST","GET"])
 @login_required
 def create_customer():
