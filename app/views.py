@@ -19,25 +19,36 @@ def login_page():
 @views.route('/customers')
 @login_required
 def customers_page():
-   all_customers = Customer.select()
+   all_customers = Customer.select().order_by(Customer.id.desc())
    return render_template('customers.html', customers=all_customers)
 
 @views.route('/invoices')
 @login_required
 def invoices_page():
-    all_invoices = Invoice.select().join(Customer)
+    all_invoices = Invoice.select().join(Customer).order_by(Invoice.id.desc())
     return render_template('invoices.html', invoices=all_invoices)
 
 @views.route('/invoices/new')
 @login_required
 def new_invoice_page():
-    customers = Customer.select()
-    items = Item.select()
+    customers = Customer.select().order_by(Customer.id.desc())
+    items = Item.select().order_by(Item.id.desc())
     return render_template('create_invoice.html', customers=customers, items=items)
 
 @views.route('/items')
 @login_required
 def items_page():
-    items = Item.select()
+    items = Item.select().order_by(Item.id.desc())
     return render_template('items.html', items=items)
 
+@views.route('/customers/<int:id>/edit')
+@login_required
+def edit_customer_page(id):
+    customer = Customer.get_by_id(id)
+    return render_template('edit_customer.html', customer=customer)
+
+@views.route('/items/<int:id>/edit')
+@login_required
+def edit_item_page(id):
+    item = Item.get_by_id(id)
+    return render_template('edit_item.html', item=item)

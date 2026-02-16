@@ -4,17 +4,14 @@ from flask_login import UserMixin
 
 db = SqliteDatabase("invoice.db")
 
-
 class BaseModel(Model):
     class Meta:
         database = db
-
 
 class User(BaseModel, UserMixin):
     email = CharField(unique=True)
     password = CharField()
     name = CharField()
-
 
 class Customer(BaseModel):
     name = CharField()
@@ -33,8 +30,9 @@ class Invoice(BaseModel):
     date = DateField(default=datetime.date.today)
     total_amount = DecimalField(default=0.0)
     arn = CharField(null=True)
-    tax_name = CharField(default="Tax")
-    tax_percentage = DecimalField(default=0.0)
+    status = CharField(default='Draft')
+    tax_type = CharField(default="GST")
+    tax_rate = DecimalField(default=0.0)
 
 class InvoiceItem(BaseModel):
     invoice = ForeignKeyField(Invoice, backref='items')

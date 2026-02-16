@@ -21,14 +21,14 @@ def create_customer():
         )
         return jsonify({"message": "Customer created", "id": customer.id}), 201
     elif request.method == "GET":
-        customers = Customer.select()
+        customers = Customer.select().order_by(Customer.id.desc())
         data = [{"id": c.id, "name": c.name, "email": c.email} for c in customers]
         return jsonify(data), 200
 
 @api.route("/items", methods=["GET"])
 @login_required
 def get_items():
-    items = Item.select()
+    items = Item.select().order_by(Item.id.desc())
     return (
         jsonify([{"id": i.id, "name": i.name, "price": str(i.price)} for i in items]),
         200,
@@ -59,7 +59,8 @@ def create_invoice():
         date=datetime.date.today(),
         tax_type=tax_type,
         tax_rate=tax_rate,
-        total_amount=0 
+        total_amount=0,
+        status="Draft"
     )
 
     subtotal = Decimal(0) 
@@ -85,19 +86,40 @@ def create_invoice():
     invoice.total_amount = grand_total
     invoice.save() 
     
+    return jsonify({
+        "invoice_id": invoice.id,
+        "message": "Draft Invoice saved",
+        "total": str(grand_total)
+    }), 201
+
+
+@api.route("/invoices/<int:id>/finalize", methods=["POST"])
+@login_required
+def finalize_invoice(id):
+    invoice = Invoice.get_by_id(id)    
+    if invoice.status == "Finalized":
+        return jsonify({"message": "Already finalized"}), 400
+
     new_arn = get_arn(invoice.id, "Admin")
     
     if new_arn:
         invoice.arn = new_arn
+        invoice.status = "Finalized"
         invoice.save()
+        return jsonify({"message": "Invoice Finalized", "arn": new_arn}), 200
+    else:
+        return jsonify({"error": "API failed to give ARN"}), 500
 
-    return jsonify({
-        "invoice_id": invoice.id,
-        "message": "Invoice created successfully",
-        "total": str(grand_total),
-        "arn": invoice.arn
-    }), 201
-
+@api.route("/invoices/<int:id>", methods=["DELETE"])
+@login_required
+def delete_invoice(id):
+    invoice = Invoice.get_by_id(id)    
+    query = InvoiceItem.delete().where(InvoiceItem.invoice == invoice)
+    query.execute()
+    
+    invoice.delete_instance()
+    
+    return jsonify({"message": "Invoice deleted"}), 200
 
 @api.route("/invoices/<int:id>/pdf", methods=["GET"])
 @login_required
@@ -111,3 +133,31 @@ def download_invoice_pdf(id):
         as_attachment=True,
         download_name=f"invoice_{id}.pdf",
     )
+
+@api.route("/items/<int:id>", methods=["PUT"])
+@login_required
+def update_item(id):
+    data = request.get_json()
+    try:
+        item = Item.get_by_id(id)
+        item.name = data["name"]
+        item.price = data["price"]
+        item.save()
+        return jsonify({"message": "Item updated"}), 200
+    except Item.DoesNotExist:
+        return jsonify({"error": "Item not found"}), 404
+    
+@api.route("/customers/<int:id>", methods=["PUT"])
+@login_required
+def update_customer(id):
+    data = request.get_json()
+    try:
+        customer = Customer.get_by_id(id)
+        customer.name = data["name"]
+        customer.email = data["email"]
+        customer.phone = data.get("phone", "")
+        customer.address = data.get("address", "")
+        customer.save()
+        return jsonify({"message": "Customer updated successfully"}), 200
+    except Customer.DoesNotExist:
+        return jsonify({"error": "Customer not found"}), 404
