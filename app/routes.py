@@ -1,10 +1,10 @@
 from flask import Blueprint, request, jsonify, send_file
 from flask_login import login_required
 import datetime
-from decimal import Decimal 
+from decimal import Decimal
 from app.utils import generate_invoice_pdf
-from app.models import Customer, InvoiceItem, Item, Invoice
-from app.einvoice import get_arn 
+from app.models import Customer, InvoiceItem, Item, Invoice, get_settings
+from app.einvoice import get_arn
 
 api = Blueprint("api", __name__)
 
@@ -55,11 +55,12 @@ def create_invoice():
     tax_rate = Decimal(str(data.get("tax_rate", 0)))
 
     invoice = Invoice.create(
-        customer=customer, 
+        customer=customer,
         date=datetime.date.today(),
         tax_type=tax_type,
         tax_rate=tax_rate,
         total_amount=0,
+        notes=data.get("notes", ""),
         status="Draft"
     )
 
@@ -93,6 +94,43 @@ def create_invoice():
     }), 201
 
 
+@api.route("/invoices/<int:id>", methods=["PUT"])
+@login_required
+def update_invoice(id):
+    invoice = Invoice.get_by_id(id)
+    if invoice.status == "Finalized":
+        return jsonify({"error": "Finalized invoices cannot be edited"}), 400
+
+    data = request.get_json()
+    customer = Customer.get_by_id(data["customer_id"])
+    tax_type = data.get("tax_type", "GST")
+    tax_rate = Decimal(str(data.get("tax_rate", 0)))
+
+    InvoiceItem.delete().where(InvoiceItem.invoice == invoice).execute()
+
+    subtotal = Decimal(0)
+    for entry in data["items"]:
+        item = Item.get_by_id(entry["item_id"])
+        qty = int(entry["quantity"])
+        line_total = item.price * qty
+        InvoiceItem.create(
+            invoice=invoice,
+            item_name=item.name,
+            item_price=item.price,
+            quantity=qty,
+            line_total=line_total
+        )
+        subtotal += line_total
+
+    tax_amount = subtotal * (tax_rate / Decimal(100))
+    invoice.customer = customer
+    invoice.tax_type = tax_type
+    invoice.tax_rate = tax_rate
+    invoice.total_amount = subtotal + tax_amount
+    invoice.notes = data.get("notes", invoice.notes)
+    invoice.save()
+    return jsonify({"message": "Invoice updated", "invoice_id": invoice.id}), 200
+
 @api.route("/invoices/<int:id>/finalize", methods=["POST"])
 @login_required
 def finalize_invoice(id):
@@ -113,12 +151,12 @@ def finalize_invoice(id):
 @api.route("/invoices/<int:id>", methods=["DELETE"])
 @login_required
 def delete_invoice(id):
-    invoice = Invoice.get_by_id(id)    
+    invoice = Invoice.get_by_id(id)
+    if invoice.status == "Finalized":
+        return jsonify({"error": "Finalized invoices cannot be deleted"}), 400
     query = InvoiceItem.delete().where(InvoiceItem.invoice == invoice)
     query.execute()
-    
     invoice.delete_instance()
-    
     return jsonify({"message": "Invoice deleted"}), 200
 
 @api.route("/invoices/<int:id>/pdf", methods=["GET"])
@@ -157,7 +195,42 @@ def update_customer(id):
         customer.email = data["email"]
         customer.phone = data.get("phone", "")
         customer.address = data.get("address", "")
+        customer.gstin = data.get("gstin", "")
         customer.save()
         return jsonify({"message": "Customer updated successfully"}), 200
     except Customer.DoesNotExist:
         return jsonify({"error": "Customer not found"}), 404
+
+@api.route("/customers/<int:id>", methods=["DELETE"])
+@login_required
+def delete_customer(id):
+    try:
+        customer = Customer.get_by_id(id)
+        if customer.invoices.count() > 0:
+            return jsonify({"error": "Cannot delete a customer with existing invoices"}), 400
+        customer.delete_instance()
+        return jsonify({"message": "Customer deleted"}), 200
+    except Customer.DoesNotExist:
+        return jsonify({"error": "Customer not found"}), 404
+
+@api.route("/items/<int:id>", methods=["DELETE"])
+@login_required
+def delete_item(id):
+    try:
+        item = Item.get_by_id(id)
+        item.delete_instance()
+        return jsonify({"message": "Item deleted"}), 200
+    except Item.DoesNotExist:
+        return jsonify({"error": "Item not found"}), 404
+
+@api.route("/settings", methods=["POST"])
+@login_required
+def update_settings():
+    data = request.get_json()
+    s = get_settings()
+    s.business_name = data.get("business_name", s.business_name)
+    s.gstin = data.get("gstin", s.gstin)
+    s.address = data.get("address", s.address)
+    s.invoice_prefix = data.get("invoice_prefix", s.invoice_prefix)
+    s.save()
+    return jsonify({"message": "Settings saved"}), 200

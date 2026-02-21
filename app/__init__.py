@@ -1,5 +1,6 @@
 from dotenv import load_dotenv
 load_dotenv()
+import os
 from flask import Flask
 from flask_login import LoginManager
 from app.models import db, User, initialize_db
@@ -10,7 +11,10 @@ login_manager = LoginManager()
 def create_app():
     app = Flask(__name__)
 
-    app.config["SECRET_KEY"] = "blank"
+    secret_key = os.getenv("SECRET_KEY")
+    if not secret_key:
+        raise RuntimeError("SECRET_KEY is not set. Add it to your .env file.")
+    app.config["SECRET_KEY"] = secret_key
 
     login_manager.init_app(app)
 

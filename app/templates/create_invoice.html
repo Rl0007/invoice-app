@@ -14,9 +14,10 @@
         <div class="grid grid-cols-2 gap-6 mb-8">
             <div>
                 <label class="block text-gray-700 font-bold mb-2">Customer</label>
-                <select id="customer_id" class="w-full border p-2 rounded">
+                <select id="customer_id" class="w-full border p-2 rounded" required>
+                    <option value="">-- Select Customer --</option>
                     {% for c in customers %}
-                    <option value="{{ c.id }}">{{ c.name }}</option>
+                    <option value="{{ c.id }}" {% if prefill_customer_id and c.id == prefill_customer_id %}selected{% endif %}>{{ c.name }}</option>
                     {% endfor %}
                 </select>
             </div>
@@ -24,11 +25,15 @@
             <div class="grid grid-cols-2 gap-2">
                 <div>
                     <label class="block text-gray-700 font-bold mb-2">Tax Type</label>
-                    <input type="text" id="tax_type" value="GST" class="w-full border p-2 rounded">
+                    <select id="tax_type" class="w-full border p-2 rounded">
+                        <option value="GST" {% if prefill_tax_type == 'GST' %}selected{% endif %}>GST</option>
+                        <option value="IGST" {% if prefill_tax_type == 'IGST' %}selected{% endif %}>IGST</option>
+                        <option value="CGST+SGST" {% if prefill_tax_type == 'CGST+SGST' %}selected{% endif %}>CGST+SGST</option>
+                    </select>
                 </div>
                 <div>
                     <label class="block text-gray-700 font-bold mb-2">Tax Rate (%)</label>
-                    <input type="number" id="tax_rate" value="18" class="w-full border p-2 rounded" onchange="calculateTotal()">
+                    <input type="number" id="tax_rate" value="{{ prefill_tax_rate if prefill_tax_rate else 18 }}" class="w-full border p-2 rounded" onchange="calculateTotal()">
                 </div>
             </div>
         </div>
@@ -47,9 +52,18 @@
             <tbody id="items-body"></tbody>
         </table>
 
-        <button type="button" onclick="addItemRow()" class="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded mb-8">
-            + Add Item
-        </button>
+        <div class="relative mb-8">
+            <button type="button" id="add-item-btn" onclick="togglePicker(event)"
+                class="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded">
+                + Add Item
+            </button>
+            <div id="item-picker" class="hidden absolute left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-xl z-20 w-72">
+                <div class="px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wide border-b bg-gray-50 rounded-t-lg">
+                    Select an item
+                </div>
+                <div id="picker-list" class="max-h-60 overflow-y-auto"></div>
+            </div>
+        </div>
 
         <div class="flex justify-end">
             <div class="w-64">
@@ -68,6 +82,12 @@
             </div>
         </div>
 
+        <div class="mt-4">
+            <label class="block text-gray-700 font-bold mb-2">Notes / Payment Terms</label>
+            <textarea id="notes" rows="2" placeholder="e.g. Payment due within 30 days. Bank: HDFC xxxx"
+                class="w-full border p-2 rounded text-sm text-gray-600"></textarea>
+        </div>
+
         <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded mt-8">
             Generate Invoice
         </button>
@@ -76,9 +96,7 @@
 
 <script>
     const availableItems = [];
-    const divs = document.querySelectorAll('#item-data-store div');
-    
-    divs.forEach(div => {
+    document.querySelectorAll('#item-data-store div').forEach(div => {
         availableItems.push({
             id: div.getAttribute('data-id'),
             name: div.getAttribute('data-name'),
@@ -86,36 +104,57 @@
         });
     });
 
-    function addItemRow() {
-        if (availableItems.length === 0) {
-            alert("No items to add!");
-            return;
-        }
+    // Build the picker list once
+    const pickerList = document.getElementById('picker-list');
+    if (availableItems.length === 0) {
+        pickerList.innerHTML = '<div class="px-3 py-4 text-sm text-gray-400 text-center">No items found. Add items first.</div>';
+    } else {
+        availableItems.forEach(item => {
+            const div = document.createElement('div');
+            div.className = 'flex justify-between items-center px-3 py-2 hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-0';
+            div.innerHTML = `<span class="text-sm font-medium text-gray-800">${item.name}</span><span class="text-xs text-gray-500 ml-2">₹${item.price.toFixed(2)}</span>`;
+            div.addEventListener('click', () => {
+                addItemRow(item);
+                closePicker();
+            });
+            pickerList.appendChild(div);
+        });
+    }
 
+    function togglePicker(e) {
+        e.stopPropagation();
+        document.getElementById('item-picker').classList.toggle('hidden');
+    }
+
+    function closePicker() {
+        document.getElementById('item-picker').classList.add('hidden');
+    }
+
+    document.addEventListener('click', function(e) {
+        const picker = document.getElementById('item-picker');
+        const btn = document.getElementById('add-item-btn');
+        if (!picker.contains(e.target) && e.target !== btn) {
+            closePicker();
+        }
+    });
+
+    function addItemRow(item) {
         const tbody = document.getElementById('items-body');
         const row = document.createElement('tr');
         row.className = "border-b";
-        
-        let options = "";
-        for (let i = 0; i < availableItems.length; i++) {
-            let item = availableItems[i];
-            options += `<option value="${item.id}" data-price="${item.price}">${item.name}</option>`;
-        }
-        
         row.innerHTML = `
             <td class="p-2">
-                <select class="item-select w-full border p-1 rounded" onchange="updatePrice(this)">
-                    ${options}
-                </select>
+                <span class="text-sm font-medium text-gray-800">${item.name}</span>
+                <input type="hidden" class="item-select" value="${item.id}">
             </td>
             <td class="p-2">
-                <input type="text" class="price-display w-full bg-gray-50" value="${availableItems[0].price}" disabled>
+                <input type="text" class="price-display w-full bg-gray-50 border p-1 rounded text-sm text-center" value="${item.price.toFixed(2)}" disabled>
             </td>
             <td class="p-2">
-                <input type="number" class="qty-input w-full border p-1" value="1" min="1" onchange="calculateTotal()">
+                <input type="number" class="qty-input w-full border p-1 rounded text-sm" value="1" min="1" onchange="calculateTotal()">
             </td>
-            <td class="p-2 font-bold row-total">₹${availableItems[0].price}</td>
-            <td class="p-2 text-red-500 cursor-pointer font-bold" onclick="deleteRow(this)">x</td>
+            <td class="p-2 font-bold row-total text-sm">₹${item.price.toFixed(2)}</td>
+            <td class="p-2 text-red-500 cursor-pointer font-bold text-lg leading-none" onclick="deleteRow(this)">×</td>
         `;
         tbody.appendChild(row);
         calculateTotal();
@@ -126,30 +165,21 @@
         calculateTotal();
     }
 
-    function updatePrice(select) {
-        const price = select.options[select.selectedIndex].getAttribute('data-price');
-        select.closest('tr').querySelector('.price-display').value = price;
-        calculateTotal();
-    }
-
     function calculateTotal() {
         let subtotal = 0;
-        const rows = document.querySelectorAll('#items-body tr');
-
-        rows.forEach(row => {
+        document.querySelectorAll('#items-body tr').forEach(row => {
             const price = parseFloat(row.querySelector('.price-display').value);
-            const qty = parseInt(row.querySelector('.qty-input').value);
+            const qty = parseInt(row.querySelector('.qty-input').value) || 0;
             const lineTotal = price * qty;
-            
-            row.querySelector('.row-total').innerText = "₹" + lineTotal;
-            subtotal = subtotal + lineTotal;
+            row.querySelector('.row-total').innerText = "₹" + lineTotal.toFixed(2);
+            subtotal += lineTotal;
         });
 
-        const taxRate = parseFloat(document.getElementById('tax_rate').value);
+        const taxRate = parseFloat(document.getElementById('tax_rate').value) || 0;
         const taxAmount = subtotal * (taxRate / 100);
         const finalTotal = subtotal + taxAmount;
 
-        document.getElementById('display-subtotal').innerText = "₹" + subtotal;
+        document.getElementById('display-subtotal').innerText = "₹" + subtotal.toFixed(2);
         document.getElementById('display-tax').innerText = "₹" + taxAmount.toFixed(2);
         document.getElementById('display-total').innerText = "₹" + finalTotal.toFixed(2);
     }
@@ -158,19 +188,23 @@
         e.preventDefault();
 
         const items = [];
-        const rows = document.querySelectorAll('#items-body tr');
-        
-        rows.forEach(row => {
+        document.querySelectorAll('#items-body tr').forEach(row => {
             items.push({
                 item_id: row.querySelector('.item-select').value,
                 quantity: row.querySelector('.qty-input').value
             });
         });
 
+        if (items.length === 0) {
+            alert("Please add at least one item.");
+            return;
+        }
+
         const dataToSend = {
             customer_id: document.getElementById('customer_id').value,
             tax_type: document.getElementById('tax_type').value,
             tax_rate: document.getElementById('tax_rate').value,
+            notes: document.getElementById('notes').value,
             items: items
         };
 
@@ -184,12 +218,28 @@
             alert("Draft Invoice Saved");
             window.location.href = "/invoices";
         } else {
-            alert("error: Check the console");
+            alert("Error saving invoice. Check the console.");
         }
     });
 
+    const prefillItems = [
+        {% if prefill_items %}
+            {% for li in prefill_items %}
+            { name: "{{ li.item_name }}", price: {{ li.item_price }}, qty: {{ li.quantity }} },
+            {% endfor %}
+        {% endif %}
+    ];
+
     window.onload = function() {
-        setTimeout(addItemRow, 500);
-    }
+        prefillItems.forEach(li => {
+            const found = availableItems.find(a => a.name === li.name);
+            if (found) {
+                addItemRow(found);
+                const rows = document.querySelectorAll('#items-body tr');
+                rows[rows.length - 1].querySelector('.qty-input').value = li.qty;
+                calculateTotal();
+            }
+        });
+    };
 </script>
 {% endblock %}

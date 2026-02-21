@@ -10,8 +10,14 @@
         </button>
     </div>
 
+    <div class="mb-4">
+        <input id="searchInput" type="text" placeholder="Search by name or email…"
+            class="border rounded px-3 py-2 text-sm w-full max-w-sm"
+            oninput="filterTable()">
+    </div>
+
     <div class="bg-white rounded-lg shadow overflow-hidden">
-        <table class="min-w-full leading-normal">
+        <table class="min-w-full leading-normal" id="customerTable">
             <thead>
                 <tr>
                     <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-50 text-left text-xs font-semibold text-gray-600 uppercase">Name</th>
@@ -33,9 +39,10 @@
                         {{ customer.phone }}
                     </td>
                     <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm">
-                        <a href="/customers/{{ customer.id }}/edit" class="text-blue-600 hover:text-blue-900 font-bold">
-                            Edit
-                        </a>
+                        <div class="flex space-x-3">
+                            <a href="/customers/{{ customer.id }}/edit" class="text-blue-600 hover:text-blue-900 font-bold">Edit</a>
+                            <button onclick="deleteCustomer({{ customer.id }})" class="text-red-500 hover:text-red-700 font-bold">Delete</button>
+                        </div>
                     </td>
                 </tr>
                 {% endfor %}
@@ -57,8 +64,10 @@
                     <input id="new_email" type="email" placeholder="Email" required 
                            class="mb-3 px-3 py-2 border rounded w-full"/>
                     
-                    <input id="new_phone" type="tel" inputmode="numeric" maxlength="10" placeholder="Phone" 
+                    <input id="new_phone" type="tel" maxlength="15" placeholder="Phone"
                            class="mb-3 px-3 py-2 border rounded w-full"/>
+                    <textarea id="new_address" placeholder="Address" rows="2"
+                           class="mb-3 px-3 py-2 border rounded w-full"></textarea>
                 </div>
                 
                 <div class="items-center px-4 py-3">
@@ -78,17 +87,33 @@
 
 {% block scripts %}
 <script>
+    async function deleteCustomer(id) {
+        if (!confirm("Delete this customer? This will fail if they have invoices.")) return;
+        const res = await fetch(`/api/customers/${id}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (res.ok) { window.location.reload(); }
+        else { alert(data.error || "Could not delete customer."); }
+    }
+
+    function filterTable() {
+        const q = document.getElementById('searchInput').value.toLowerCase();
+        document.querySelectorAll('#customerTable tbody tr').forEach(row => {
+            row.style.display = !q || row.innerText.toLowerCase().includes(q) ? '' : 'none';
+        });
+    }
+
     document.getElementById('createCustomerForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         
         const name = document.getElementById('new_name').value;
         const email = document.getElementById('new_email').value;
         const phone = document.getElementById('new_phone').value;
+        const address = document.getElementById('new_address').value;
 
         const response = await fetch('/api/customers', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ name, email, phone })
+            body: JSON.stringify({ name, email, phone, address })
         });
 
         if (response.ok) {

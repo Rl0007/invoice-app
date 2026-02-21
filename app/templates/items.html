@@ -10,8 +10,14 @@
         </button>
     </div>
 
+    <div class="mb-4">
+        <input id="searchInput" type="text" placeholder="Search items…"
+            class="border rounded px-3 py-2 text-sm w-full max-w-sm"
+            oninput="filterTable()">
+    </div>
+
     <div class="bg-white rounded-lg shadow overflow-hidden">
-        <table class="min-w-full leading-normal">
+        <table class="min-w-full leading-normal" id="itemTable">
             <thead>
                 <tr>
                     <th
@@ -45,9 +51,10 @@
                         ₹{{ item.price }}
                     </td>
                     <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm">
-                        <a href="/items/{{ item.id }}/edit" class="text-blue-600 hover:text-blue-900 font-bold">
-                            Edit
-                        </a>
+                        <div class="flex space-x-3">
+                            <a href="/items/{{ item.id }}/edit" class="text-blue-600 hover:text-blue-900 font-bold">Edit</a>
+                            <button onclick="deleteItem({{ item.id }})" class="text-red-500 hover:text-red-700 font-bold">Delete</button>
+                        </div>
                     </td>
                 </tr>
                 {% endfor %}
@@ -85,6 +92,20 @@
 </div>
 
 <script>
+    async function deleteItem(id) {
+        if (!confirm("Delete this item?")) return;
+        const res = await fetch(`/api/items/${id}`, { method: 'DELETE' });
+        if (res.ok) { window.location.reload(); }
+        else { alert("Could not delete item."); }
+    }
+
+    function filterTable() {
+        const q = document.getElementById('searchInput').value.toLowerCase();
+        document.querySelectorAll('#itemTable tbody tr').forEach(row => {
+            row.style.display = !q || row.innerText.toLowerCase().includes(q) ? '' : 'none';
+        });
+    }
+
     document.getElementById('addItemForm').addEventListener('submit', async function (e) {
         e.preventDefault();
 

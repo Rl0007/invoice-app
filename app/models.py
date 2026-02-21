@@ -16,8 +16,16 @@ class User(BaseModel, UserMixin):
 class Customer(BaseModel):
     name = CharField()
     email = CharField(unique=True)
-    phone = IntegerField()
+    phone = CharField(max_length=15)
     address = TextField()
+    gstin = CharField(max_length=15, null=True)
+
+
+class Settings(BaseModel):
+    business_name = CharField(default="My Business")
+    gstin = CharField(max_length=15, null=True)
+    address = TextField(null=True)
+    invoice_prefix = CharField(max_length=10, default="INV")
 
 
 class Item(BaseModel):
@@ -33,6 +41,7 @@ class Invoice(BaseModel):
     status = CharField(default='Draft')
     tax_type = CharField(default="GST")
     tax_rate = DecimalField(default=0.0)
+    notes = TextField(null=True)
 
 class InvoiceItem(BaseModel):
     invoice = ForeignKeyField(Invoice, backref='items')
@@ -41,8 +50,24 @@ class InvoiceItem(BaseModel):
     quantity = IntegerField()
     line_total = DecimalField()
 
+def _migrate(migrations):
+    for sql in migrations:
+        try:
+            db.execute_sql(sql)
+        except Exception:
+            pass  # column already exists
+
 def initialize_db():
     db.connect()
-    db.create_tables([User, Customer, Item, Invoice ,InvoiceItem], safe=True)
+    db.create_tables([User, Customer, Item, Invoice, InvoiceItem, Settings], safe=True)
+    _migrate([
+        "ALTER TABLE customer ADD COLUMN gstin VARCHAR(15)",
+        "ALTER TABLE invoice ADD COLUMN notes TEXT",
+    ])
+    if not Settings.select().exists():
+        Settings.create()
     db.close()
+
+def get_settings():
+    return Settings.get_by_id(1)
 
